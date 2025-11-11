@@ -2,25 +2,29 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from decimal import Decimal
+#from extra_endpoints import *
+
 
 app = Flask(__name__)
 CORS(app,origins=["http://localhost:5173"])
 
 # Database connection function
 def get_db_connection():
-    return psycopg2.connect(
+    conn=psycopg2.connect(
         host="localhost",
-        database="ipl_db",
+        database="odi_db",
         user="postgres",
-        password="Subhro@02"
-    )
+        password="Subhro@02")
+    conn.autocommit=True
+    return conn
 
 # 1. Teams API
 @app.route('/api/teams')
 def get_teams():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT DISTINCT team_bat FROM ipl_matches AS teams ")
+    cur.execute("SELECT DISTINCT team_bat FROM odi_db AS teams ")
     teams = [row['team_bat'] for row in cur.fetchall()]
     cur.close()
     conn.close()
@@ -31,7 +35,7 @@ def get_teams():
 def get_players():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT DISTINCT player FROM (SELECT bat AS player FROM ipl_matches UNION SELECT bowl AS player FROM ipl_matches) AS players ORDER BY player")
+    cur.execute("SELECT DISTINCT player FROM (SELECT bat AS player FROM odi_db UNION SELECT bowl AS player FROM odi_db) AS players ORDER BY player")
     players = [row['player'] for row in cur.fetchall()]
     cur.close()
     conn.close()
@@ -42,7 +46,7 @@ def get_players():
 def get_matches():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT DISTINCT p_match, team_bat || ' vs ' || team_bowl AS teams, date FROM ipl_matches ORDER BY date DESC LIMIT 100")
+    cur.execute("SELECT DISTINCT p_match, team_bat || ' vs ' || team_bowl AS teams, date FROM odi_db ORDER BY date DESC LIMIT 100")
     matches = cur.fetchall()
     cur.close()
     conn.close()
@@ -53,7 +57,7 @@ def get_matches():
 def get_seasons():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT DISTINCT year FROM ipl_matches ORDER BY year DESC")
+    cur.execute("SELECT DISTINCT year FROM odi_db ORDER BY year DESC")
     seasons = [row['year'] for row in cur.fetchall()]
     cur.close()
     conn.close()
@@ -72,7 +76,7 @@ def get_team_performance():
             COUNT(*) FILTER (WHERE winner = 'No Result') AS ties
         FROM (
             SELECT DISTINCT p_match, winner
-            FROM ipl_matches
+            FROM odi_db
             WHERE team_bat = %s OR team_bowl = %s
         ) AS team_matches
     """, (team, team, team, team))
@@ -107,7 +111,7 @@ def get_player_stats():
                     END AS NUMERIC
                 ), 2
                 ) AS average
-                FROM ipl_matches
+                FROM odi_db
                 WHERE bat = %s
     """, (player,))
     batting_stats = cur.fetchone()
@@ -120,15 +124,25 @@ def get_player_stats():
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC), 2) AS economy_rate,
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS average,
             ROUND(CAST(CAST(COUNT(*) AS FLOAT) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS strike_rate
-        FROM ipl_matches
+        FROM odi_db
         WHERE bowl = %s;
 
     """, (player,))
     bowling_stats = cur.fetchone()
-    
+
+    # Bat Hand
+    cur.execute("""
+        SELECT 
+            bat_hand
+            FROM odi_db
+        WHERE bat = %s;
+
+    """, (player,))
+    bat_hand = cur.fetchone()
+
     cur.close()
     conn.close()
-    return jsonify({"batting": batting_stats, "bowling": bowling_stats})
+    return jsonify({"batting": batting_stats, "bowling": bowling_stats,"bat_hand":bat_hand})
 
 # 7. Match Summary API
 @app.route('/api/match-summary')
@@ -147,7 +161,7 @@ def get_match_summary():
             date,
             ground,
             winner
-        FROM ipl_matches
+        FROM odi_db
         WHERE p_match = %s
         GROUP BY p_match, team_bat, team_bowl, date, ground, winner
         ORDER BY p_match, team_bat
@@ -164,7 +178,7 @@ def get_match_summary():
                 WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) >= 3 THEN 'Three-fer'
                 ELSE 'Notable performance'
             END AS achievement
-        FROM ipl_matches
+        FROM odi_db
         WHERE p_match = %s
         GROUP BY bat
         HAVING SUM(CAST(batruns AS INTEGER)) >= 50 OR COUNT(CASE WHEN outcome = 'out' THEN 1 END) >= 3
@@ -195,11 +209,11 @@ def get_season_overview():
             COUNT(*) FILTER (WHERE winner = team) AS wins
         FROM (
             SELECT DISTINCT p_match, team_bat AS team, winner
-            FROM ipl_matches
+            FROM odi_db
             WHERE year = %s
             UNION
             SELECT DISTINCT p_match, team_bowl AS team, winner
-            FROM ipl_matches
+            FROM odi_db
             WHERE year = %s
         ) AS team_matches
         GROUP BY team
@@ -213,7 +227,7 @@ def get_season_overview():
         SELECT 
             bat AS name,
             SUM(CAST(batruns AS INTEGER)) AS runs
-            FROM ipl_matches
+            FROM odi_db
             WHERE year = %s
             GROUP BY bat
             ORDER BY runs DESC
@@ -226,7 +240,7 @@ def get_season_overview():
         SELECT 
             bowl AS name,
             COUNT(CASE WHEN outcome = 'out' THEN 1 END) AS wickets
-            FROM ipl_matches
+            FROM odi_db
             WHERE year = %s
             GROUP BY bowl
             ORDER BY COUNT(CASE WHEN outcome = 'out' THEN 1 END) DESC
@@ -268,7 +282,7 @@ def get_team_season_performance():
                     WHEN team_bat = %s THEN team_bat
                     WHEN team_bowl = %s THEN team_bowl
                 END AS team
-            FROM ipl_matches
+            FROM odi_db
             WHERE team_bat = %s OR team_bowl = %s
         )
         SELECT 
@@ -322,7 +336,7 @@ def get_player_matchup():
             ), 2
             ) AS average,
             ROUND(CAST(SUM(CAST(batruns AS FLOAT)) / NULLIF(COUNT(*) / 6, 0) AS NUMERIC), 2) AS economy_rate
-        FROM ipl_matches
+        FROM odi_db
         WHERE bat = %s AND bowl = %s
     """, (batsman, bowler))
 
@@ -357,7 +371,7 @@ def get_batscatter_stats():
                     END AS NUMERIC
                 ), 2
             ) AS average
-        FROM ipl_matches
+        FROM odi_db
         GROUP BY bat
         HAVING COUNT(DISTINCT p_match) > 25
         ORDER BY batsman;
@@ -379,7 +393,7 @@ def get_bowlscatter_stats():
             bowl AS bowler,
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC), 2) AS economy,
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS average
-        FROM ipl_matches
+        FROM odi_db
         GROUP BY bowl
         HAVING COUNT(DISTINCT p_match) > 25 
     """)
@@ -415,7 +429,7 @@ def get_player_statsbyyear():
                     END AS NUMERIC
                 ), 2
                 ) AS average
-            FROM ipl_matches
+            FROM odi_db
             WHERE bat = %s
             GROUP BY year
             ORDER BY year
@@ -443,7 +457,7 @@ def get_player_contri():
         SELECT 
             bat AS player_name,
             SUM(CAST(batruns AS INTEGER)) AS runs
-        FROM ipl_matches
+        FROM odi_db
         WHERE team_bat = %s AND year = %s
         GROUP BY bat
     """, (team, year))
@@ -454,7 +468,7 @@ def get_player_contri():
         SELECT 
             bowl AS player_name,
             COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) AS wickets
-        FROM ipl_matches
+        FROM odi_db
         WHERE team_bowl = %s AND year = %s
         GROUP BY bowl
     """, (team, year))
@@ -488,10 +502,10 @@ def get_player_contri():
 
 @app.route('/api/player-run-distribution')
 def get_player_run_distribution():
-    #player = request.args.get('player')
+    player = request.args.get('player')
     
-    #if not player:
-    #return jsonify({'error': 'Please provide a player name'}), 400
+    if not player:
+        return jsonify({'error': 'Please provide a player name'}), 400
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -501,8 +515,8 @@ def get_player_run_distribution():
         SELECT 
             SUM(CAST(batruns AS INTEGER)) AS runs,
             team_bowl AS opponent
-        FROM ipl_matches
-        WHERE bat = 'Virat Kohli'
+        FROM odi_db
+        WHERE bat = %s
         GROUP BY p_match, team_bowl
         ORDER BY p_match, team_bowl
     """
@@ -528,19 +542,19 @@ def get_player_run_distribution():
 
 @app.route('/api/player-role-analysis')
 def get_player_role_analysis():
-    #player = request.args.get('player')
+    player = request.args.get('player')
     
-    #if not player:
-     #   return jsonify({'error': 'Please provide a player name'}), 400
+    if not player:
+       return jsonify({'error': 'Please provide a player name'}), 400
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    batting_query = """
+    cur.execute("""
         SELECT 
             CASE 
-                WHEN CAST(over AS INTEGER) <= 6 THEN 'Powerplay'
-                WHEN CAST(over AS INTEGER) BETWEEN 7 AND 15 THEN 'Middle Overs'
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
                 ELSE 'Death Overs'
             END AS role,
             SUM(CAST(batruns AS INTEGER)) AS runs,
@@ -558,30 +572,30 @@ def get_player_role_analysis():
                     END AS NUMERIC
                 ), 2
                 ) AS average
-        FROM ipl_matches
-        WHERE bat = 'Virat Kohli'
+        FROM odi_db
+        WHERE bat = %s
         GROUP BY role
-    """
-    cur.execute(batting_query)
+    """, (player,))
+
     batting_data = cur.fetchall()
 
     # Query to get bowling role analysis with type casting
-    bowling_query = """
+    cur.execute("""
         SELECT 
             CASE 
-                WHEN CAST(over AS INTEGER) <= 6 THEN 'Powerplay'
-                WHEN CAST(over AS INTEGER) BETWEEN 7 AND 15 THEN 'Middle Overs'
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
                 ELSE 'Death Overs'
             END AS role,
             COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) AS wickets,
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC), 2) AS economy_rate,
             ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS average,
             ROUND(CAST(CAST(COUNT(*) AS FLOAT) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS strike_rate
-        FROM ipl_matches
-        WHERE bowl = 'Jasprit Bumrah'
+        FROM odi_db
+        WHERE bowl = %s
         GROUP BY role
-    """
-    cur.execute(bowling_query)
+    """, (player,))
+
     bowling_data = cur.fetchall()
 
     cur.close()
@@ -594,6 +608,825 @@ def get_player_role_analysis():
     }
 
     return jsonify(response)
+
+@app.route('/api/player-typeagainst-analysis')
+def get_player_typeagainst_analysis():
+    player = request.args.get('player')
+    
+    if not player:
+       return jsonify({'error': 'Please provide a player name'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            bowl_style as type,
+            SUM(CAST(batruns AS INTEGER)) AS runs,
+            ROUND(
+                    CASE
+                        WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                        ELSE CAST(SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100 AS NUMERIC)
+                    END, 2
+                ) AS strike_rate,
+                ROUND(
+                CAST(
+                    CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                    ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                    END AS NUMERIC
+                ), 2
+                ) AS average
+        FROM odi_db
+        WHERE bat = %s
+        GROUP BY bowl_style
+        ORDER BY bowl_style
+    """, (player,))
+
+    batting_data = cur.fetchall()
+
+
+    cur.execute("""
+        SELECT 
+            bat_hand as type,
+            COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) AS wickets,
+            ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC), 2) AS economy_rate,
+            ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS average,
+            ROUND(CAST(CAST(COUNT(*) AS FLOAT) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS strike_rate
+        FROM odi_db
+        WHERE bowl = %s
+        GROUP BY bat_hand
+        ORDER BY bat_hand
+    """, (player,))
+    bowling_data = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    response = {
+        'batting': batting_data,
+        'bowling': bowling_data
+    }
+
+    return jsonify(response)
+
+@app.route('/api/batter-line-length')
+def get_batter_line_length():
+    player = request.args.get('player')
+    if not player:
+        return jsonify({"error": "Player parameter is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            line,
+            length,
+            SUM(CAST(batruns AS INTEGER)) AS total_runs,
+            COUNT(*) AS balls_faced
+        FROM odi_db
+        WHERE bat = %s
+        GROUP BY line, length
+        ORDER BY total_runs DESC
+    """, (player,))
+
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
+
+# ====================================
+# 2️⃣ Batter Line-Length Strike Rate
+# ====================================
+@app.route('/api/batter-line-length-sr')
+def get_batter_line_length_sr():
+    player = request.args.get('player')
+    if not player:
+        return jsonify({"error": "Player parameter is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            line,
+            length,
+            SUM(CAST(batruns AS INTEGER)) AS total_runs,
+            COUNT(*) AS balls_faced,
+            ROUND(
+                CASE 
+                    WHEN COUNT(*) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
+                END, 2
+            ) AS strike_rate
+        FROM odi_db
+        WHERE bat = %s
+        GROUP BY line, length
+    """, (player,))
+
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
+
+# ===============================
+# 3️⃣ Batter Shot Type Analysis
+# ===============================
+@app.route('/api/batter-shot-types', methods=['GET'])
+def get_batter_shot_types():
+    try:
+        player = request.args.get('player')
+        if not player:
+            return jsonify({"error": "Missing 'player' parameter"}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # --- Fetch and cast numeric columns ---
+        query = """
+            SELECT 
+                shot,
+                SUM(CAST(batruns AS NUMERIC)) AS total_runs,
+                SUM(CAST(ballfaced AS NUMERIC)) AS total_balls,
+                SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END) AS total_outs,
+                SUM(
+                COALESCE(
+                    NULLIF(NULLIF(LOWER(control), 'nan'), '')::NUMERIC, 
+                    0
+                )
+                ) AS control_sum,
+                COUNT(control) AS control_count,
+                ROUND(
+                    CASE
+                        WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                        ELSE CAST(SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100 AS NUMERIC)
+                    END, 2
+                ) AS strike_rate,
+                ROUND(
+                CAST(
+                    CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                    ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                    END AS NUMERIC
+                ), 2
+                ) AS average,
+                 ROUND(
+                    CASE WHEN COUNT(control) > 0 
+                        THEN (
+                            SUM(
+                                COALESCE(
+                                    NULLIF(
+                                        NULLIF(LOWER(control), 'nan'),
+                                        ''
+                                    )::NUMERIC,
+                                    0
+                                )
+                            ) / COUNT(control) * 100
+                        )
+                        ELSE 0 END, 2
+                ) AS control_pct
+            FROM odi_db
+            WHERE bat = %s
+            GROUP BY shot
+            ORDER BY total_runs DESC;
+        """
+        cur.execute(query, (player,))
+        results = cur.fetchall()
+
+        
+        return jsonify(results)
+
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+# ===============================
+# 4️⃣ Bowler Line-Length Analysis
+# ===============================
+@app.route('/api/bowler-line-length')
+def get_bowler_line_length():
+    player = request.args.get('player')
+    if not player:
+        return jsonify({"error": "Player parameter is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            line,
+            length,
+            COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) AS wickets,
+            SUM(CAST(bowlruns AS INTEGER)) AS runs_conceded,
+            ROUND(
+                CASE 
+                    WHEN COUNT(*) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC)
+                END, 2
+            ) AS economy
+        FROM odi_db
+        WHERE bowl = %s
+        GROUP BY line, length
+        ORDER BY wickets DESC, economy ASC
+    """, (player,))
+
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
+
+# =================================
+# 5️⃣ Extended Batting Stats
+# =================================
+@app.route('/api/batting-stats-extended')
+def get_batting_stats_extended():
+    player = request.args.get('player')
+    if not player:
+        return jsonify({"error": "Player parameter is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            team_bowl AS opponent,
+            SUM(CAST(batruns AS INTEGER)) AS total_runs,
+            COUNT(CASE WHEN outcome = 'out' THEN 1 END) AS dismissals,
+            ROUND(
+                CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                    ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                END, 2
+            ) AS average,
+            ROUND(
+                CASE 
+                    WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                    ELSE SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100
+                END, 2
+            ) AS strike_rate
+        FROM odi_db
+        WHERE bat = %s
+        GROUP BY team_bowl
+        ORDER BY total_runs DESC
+    """, (player,))
+
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
+
+# =================================
+# 6️⃣ Extended Bowling Stats
+# =================================
+@app.route('/api/bowling-stats-extended')
+def get_bowling_stats_extended():
+    player = request.args.get('player')
+    if not player:
+        return jsonify({"error": "Player parameter is required"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT 
+            team_bat AS opponent,
+            COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) AS wickets,
+            SUM(CAST(bowlruns AS INTEGER)) AS runs_conceded,
+            ROUND(
+                CASE 
+                    WHEN COUNT(*) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC)
+                END, 2
+            ) AS economy,
+            ROUND(
+                CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END) = 0 THEN 0
+                    ELSE SUM(CAST(bowlruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END)
+                END, 2
+            ) AS bowling_average
+        FROM odi_db
+        WHERE bowl = %s
+        GROUP BY team_bat
+        ORDER BY wickets DESC
+    """, (player,))
+
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
+@app.route('/api/batter-bowl-types', methods=['GET'])
+def get_batter_bowl_types():
+    try:
+        player = request.args.get('player')
+        if not player:
+            return jsonify({"error": "Missing 'player' parameter"}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # --- Fetch and cast numeric columns ---
+        query = """
+            SELECT 
+                bowl_style,
+                COUNT(*) AS total_balls,
+                SUM(CAST(batruns AS NUMERIC)) AS total_runs,
+                SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END) AS total_outs,
+                SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END) AS dots,
+                ROUND(
+                CASE
+                    WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100 AS NUMERIC)
+                END, 2
+            ) 	AS strike_rate,
+                ROUND(
+                CAST(
+                    CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                    ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                    END AS NUMERIC
+                ), 2
+                ) AS average,
+                ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+                ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct
+
+            FROM odi_db
+            WHERE bat = %s
+            GROUP BY bowl_style
+            ORDER BY total_runs DESC;
+
+        """
+        cur.execute(query, (player,))
+        results = cur.fetchall()
+
+        
+        return jsonify(results)
+
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/batter-wagon', methods=['GET'])
+def get_batter_wagon():
+    try:
+        player = request.args.get('player')
+        if not player:
+            return jsonify({"error": "Missing 'player' parameter"}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # --- Fetch and cast numeric columns ---
+        query = """
+            SELECT 
+                wagonZone,
+                COUNT(*) AS total_balls,
+                SUM(CAST(batruns AS NUMERIC)) AS total_runs,
+                SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END) AS total_outs,
+                SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END) AS dots,
+                ROUND(
+                CASE
+                    WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100 AS NUMERIC)
+                END, 2
+            ) 	AS strike_rate,
+                ROUND(
+                CAST(
+                    CASE 
+                    WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                    ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                    END AS NUMERIC
+                ), 2
+                ) AS average,
+                ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+                ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct
+
+            FROM odi_db
+            WHERE bat = %s
+            GROUP BY wagonZone;
+
+        """
+        cur.execute(query, (player,))
+        results = cur.fetchall()
+
+        
+        return jsonify(results)
+
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/batter-skill-profile")
+def player_skill_profile():
+    player = request.args.get("player")
+    if not player:
+        return jsonify({"error": "Missing player"}), 400
+    
+    conn = get_db_connection()
+    conn.autocommit = True
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    query = f"""
+        SELECT
+            CASE 
+            WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+            WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+            ELSE 'Death Overs'
+            END AS phase, 
+            ROUND(
+                CASE
+                    WHEN SUM(CAST(ballfaced AS FLOAT)) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / SUM(CAST(ballfaced AS FLOAT)) * 100 AS NUMERIC)
+                END, 2
+            ) AS strike_rate,
+            ROUND(
+            CAST(
+                CASE 
+                WHEN COUNT(CASE WHEN outcome = 'out' THEN 1 END) = 0 THEN SUM(CAST(batruns AS FLOAT))
+                ELSE SUM(CAST(batruns AS FLOAT)) / COUNT(CASE WHEN outcome = 'out' THEN 1 END)
+                END AS NUMERIC
+            ), 2
+            ) AS average
+            FROM odi_db
+            WHERE bat = %s
+            GROUP BY phase
+    """
+
+    cur.execute(query, (player,))
+    sr_data = cur.fetchall()
+
+    query2 = f"""
+        SELECT
+            ROUND(
+                (SUM(CASE WHEN POSITION('no run' IN LOWER(TRIM(outcome))) > 0 THEN 1 ELSE 0 END)::NUMERIC 
+                / NULLIF(COUNT(*),0)) * 100, 2
+            ) AS dot_pct,
+            ROUND(
+                (SUM(CASE WHEN LOWER(TRIM(outcome)) IN ('four', '6', 'six') THEN 1 ELSE 0 END)::NUMERIC 
+                / NULLIF(COUNT(*),0)) * 100, 2
+            ) AS boundary_pct,
+            ROUND(
+                CAST(
+                    (
+                        (
+                            SUM(CAST(batruns AS NUMERIC))
+                            - SUM(CASE WHEN outcome IN ('four', 'six') THEN CAST(batruns AS NUMERIC) ELSE 0 END)
+                        )
+                        / NULLIF(
+                            (COUNT(*) - SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END))
+                        , 0)
+                    ) * 100
+                AS NUMERIC), 2
+            ) AS nbsr,
+            ROUND(
+                CAST(
+                    (SUM(CASE WHEN CAST(batruns AS INT) = 1 THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100)
+                AS NUMERIC), 2
+            ) AS singles_pct,
+            ROUND(
+                CAST(
+                    (
+                        (0.4 * 
+                            (
+                                (
+                                    (
+                                        (SUM(CAST(batruns AS NUMERIC))
+                                        - SUM(CASE WHEN outcome IN ('four', 'six') THEN CAST(batruns AS NUMERIC) ELSE 0 END))
+                                        / NULLIF(
+                                            (COUNT(*) - SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END))
+                                        , 0)
+                                    ) * 100
+                                )
+                            )
+                        )
+                        + (0.4 * 
+                            (SUM(CASE WHEN CAST(batruns AS INT) = 1 THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100)
+                        )
+                        + (0.2 *
+                            (100 - (SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))
+                        )
+                    )
+                AS NUMERIC), 2
+            ) AS sri
+        FROM odi_db
+        WHERE LOWER(bat) = LOWER(%s);
+    """
+
+    cur.execute(query2, (player,))
+    row = cur.fetchone()
+
+    pct_data = {}
+    if row:
+        pct_data["dot_pct"] = float(row.get("dot_pct") or 0)
+        pct_data["boundary_pct"] = float(row.get("boundary_pct") or 0)
+        pct_data["nbsr"] = float(row.get("nbsr") or 0)
+        pct_data["singles_pct"] = float(row.get("singles_pct") or 0)
+        pct_data["sri"] = float(row.get("sri") or 0)
+    else:
+        pct_data["dot_pct"] = 0
+        pct_data["boundary_pct"] = 0
+        pct_data["nbsr"] = 0
+        pct_data["singles_pct"] = 0
+        pct_data["sri"] = 0
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"pp_sr": next((row["strike_rate"] for row in sr_data if row["phase"] == "Powerplay"), 0),
+                    "middle_sr": next((row["strike_rate"] for row in sr_data if row["phase"] == "Middle Overs"), 0),
+                    "death_sr": next((row["strike_rate"] for row in sr_data if row["phase"] == "Death Overs"), 0),
+                    "boundary_pct": pct_data["boundary_pct"] or 0,
+                    "dot_pct": pct_data["dot_pct"] or 0,
+                    "nbsr":pct_data["nbsr"] or 0,
+                    "singles_pct":pct_data["singles_pct"] or 0,
+                    "sri":pct_data["sri"]
+                    })
+
+@app.route("/api/bowler-skill-profile")
+def bowler_skill_profile():
+    player = request.args.get("player")
+    if not player:
+        return jsonify({"error": "Missing player"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Phase-wise economy
+    phase_query = """
+        SELECT
+            CASE 
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                ELSE 'Death Overs'
+            END AS phase,
+            ROUND(
+                CAST(
+                    (SUM(CAST(score AS NUMERIC)) / NULLIF(COUNT(ball_id), 0)) * 6 
+                AS NUMERIC), 2
+            ) AS economy
+        FROM odi_db
+        WHERE bowl = %s
+        GROUP BY phase
+        ORDER BY phase;
+    """
+
+    cur.execute(phase_query, (player,))
+    phase_data = cur.fetchall()
+
+    # Overall skill metrics
+    skill_query = """
+        SELECT
+            ROUND(
+                CAST(
+                    (SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100
+                AS NUMERIC), 2
+            ) AS dot_pct,
+            ROUND(
+                CAST(
+                    (SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100
+                AS NUMERIC), 2
+            ) AS wicket_pct,
+            ROUND(CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS average,
+            ROUND(CAST(CAST(COUNT(*) AS FLOAT) / NULLIF(COUNT(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 END), 0) AS NUMERIC), 2) AS strike_rate,
+            ROUND(
+                CAST(
+                    (SUM(CAST(score AS NUMERIC)) / NULLIF(COUNT(ball_id),0)) * 6
+                AS NUMERIC), 2
+            ) AS overall_econ
+        FROM odi_db
+        WHERE bowl = %s;
+    """
+
+    cur.execute(skill_query, (player,))
+    skill_data = cur.fetchone()
+
+    # Compute Bowler Efficiency Index (BEI)
+    bei_query = """
+        SELECT
+            ROUND(
+                CAST(
+                    (
+                        (0.3 * (100 - ((SUM(CAST(score AS NUMERIC)) / NULLIF(COUNT(ball_id),0)) * 6))) +
+                        (0.3 * ((SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))) +
+                        (0.2 * ((SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))) +
+                        (0.2 * (100 - (SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100)))
+                    )
+                AS NUMERIC), 2
+            ) AS bei
+        FROM odi_db
+        WHERE bowl = %s;
+    """
+
+    cur.execute(bei_query, (player,))
+    bei_data = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "phase_data": phase_data,
+        "skills": skill_data,
+        "bei": bei_data
+    })
+
+@app.route("/api/global-phase-benchmarks")
+def global_phase_benchmarks():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    query = """
+        WITH player_phase_stats AS (
+            SELECT 
+                bat,
+                CASE 
+                    WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                    WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle'
+                    ELSE 'Death'
+                END AS phase,
+                SUM(CAST(batruns AS FLOAT)) AS total_runs,
+                SUM(CAST(ballfaced AS FLOAT)) AS total_balls,
+                SUM(CASE WHEN LOWER(outcome) IN ('four', 'six') THEN 1 ELSE 0 END)::FLOAT AS boundaries,
+                SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::FLOAT AS dots,
+                SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END)::FLOAT AS outs,
+                COUNT(*)::FLOAT AS total_balls_faced
+            FROM odi_db
+            WHERE bat IS NOT NULL
+            GROUP BY bat, phase
+        ),
+        aggregated AS (
+            SELECT
+                bat,
+                phase,
+                (total_runs / NULLIF(total_balls, 0)) * 100 AS sr,
+                (boundaries / NULLIF(total_balls_faced, 0)) * 100 AS boundary_pct,
+                (dots / NULLIF(total_balls_faced, 0)) * 100 AS dot_pct,
+                ((total_balls_faced - boundaries - dots) / NULLIF(total_balls_faced, 0)) * 100 AS sri,
+                (total_runs / NULLIF(outs, 0)) AS average
+            FROM player_phase_stats
+        )
+        SELECT 
+            phase,
+            ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY sr)::NUMERIC, 2) AS sr_95,
+            ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY boundary_pct)::NUMERIC, 2) AS boundary_95,
+            ROUND(PERCENTILE_CONT(0.05) WITHIN GROUP (ORDER BY dot_pct)::NUMERIC, 2) AS dot_95,
+            ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY sri)::NUMERIC, 2) AS sri_95,
+            ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY average)::NUMERIC, 2) AS avg_95
+        FROM aggregated
+        GROUP BY phase
+        ORDER BY 
+            CASE 
+                WHEN phase = 'Powerplay' THEN 1
+                WHEN phase = 'Middle' THEN 2
+                WHEN phase = 'Death' THEN 3
+            END;
+    """
+
+    cur.execute(query)
+    rows = cur.fetchall()
+
+    global_query = """
+    WITH player_agg AS (
+        SELECT 
+            bat,
+            SUM(CAST(batruns AS NUMERIC)) AS total_runs,
+            COUNT(*)::NUMERIC AS total_balls,
+            SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC AS boundaries,
+            SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC AS dots,
+            SUM(CASE WHEN CAST(batruns AS INT) = 1 THEN 1 ELSE 0 END)::NUMERIC AS singles,
+            SUM(CASE WHEN outcome IN ('four', 'six') THEN CAST(batruns AS NUMERIC) ELSE 0 END)::NUMERIC AS boundary_runs
+        FROM odi_db
+        WHERE bat IS NOT NULL
+        GROUP BY bat
+    ),
+    derived AS (
+        SELECT
+            bat,
+            ROUND(
+                CAST(
+                    (
+                        (0.4 * 
+                            (
+                                (
+                                    (
+                                        (total_runs - boundary_runs)
+                                        / NULLIF((total_balls - boundaries), 0)
+                                    ) * 100
+                                )
+                            )
+                        )
+                        + (0.4 * (singles / NULLIF(total_balls, 0) * 100))
+                        + (0.2 * (100 - (dots / NULLIF(total_balls, 0) * 100)))
+                    )
+                AS NUMERIC), 2
+            ) AS sri,
+            ROUND((boundaries / NULLIF(total_balls, 0)) * 100, 2) AS boundary_pct
+        FROM player_agg
+    )
+    SELECT 
+        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY sri)::NUMERIC, 2) AS sri_95_global,
+        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY boundary_pct)::NUMERIC, 2) AS boundary_95_global
+    FROM derived;
+"""
+    cur.execute(global_query)
+    dataaa = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    benchmarks = {row["phase"]: row for row in rows}
+    return jsonify({"phase":benchmarks,"global":dataaa})
+
+@app.route("/api/bowlers-global-benchmarks")
+def bowlers_global_benchmarks():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Phase-based 95th percentiles (Powerplay, Middle, Death)
+    phase_query = """
+        SELECT
+            phase,
+            ROUND(PERCENTILE_CONT(0.05) WITHIN GROUP (
+                ORDER BY economy
+            )::NUMERIC, 2) AS econ_95,
+            ROUND(PERCENTILE_CONT(0.05) WITHIN GROUP (
+                ORDER BY strike_rate
+            )::NUMERIC, 2) AS sr_95,
+            ROUND(PERCENTILE_CONT(0.05) WITHIN GROUP (
+                ORDER BY average
+            )::NUMERIC, 2) AS avg_95
+        FROM (
+            SELECT
+                CASE 
+                    WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                    WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle'
+                    ELSE 'Death'
+                END AS phase,
+                (SUM(CAST(score AS FLOAT)) / NULLIF(COUNT(ball_id), 0)) * 6 AS economy,
+                (CAST(COUNT(ball_id) AS FLOAT) / NULLIF(SUM(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 ELSE 0 END), 0)) AS strike_rate,
+                (SUM(CAST(bowlruns AS FLOAT)) / NULLIF(SUM(CASE WHEN outcome = 'out' AND dismissal != 'run out' THEN 1 ELSE 0 END), 0)) AS average
+            FROM odi_db
+            WHERE bowl IS NOT NULL
+            GROUP BY phase, bowl
+        ) sub
+        GROUP BY phase
+        ORDER BY phase;
+    """
+
+    cur.execute(phase_query)
+    phase_rows = cur.fetchall()
+
+    # Global metrics (dot%, wicket%, BEI)
+    global_query = """
+        SELECT
+        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY dot_pct)::NUMERIC, 2) AS dot_95_global,
+        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY wicket_pct)::NUMERIC, 2) AS wicket_95_global,
+        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY bei)::NUMERIC, 2) AS bei_95_global
+        FROM (
+            SELECT
+                bowl,
+                (SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100 AS dot_pct,
+
+                (SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END)::NUMERIC / COUNT(*)) * 100 AS wicket_pct,
+
+                (
+                    (0.3 * (100 - ((SUM(CAST(score AS NUMERIC)) / NULLIF(COUNT(ball_id), 0)) * 6))) +
+                    (0.3 * ((SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))) +
+                    (0.2 * ((SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))) +
+                    (0.2 * (100 - (SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100)))
+                ) AS bei
+            FROM odi_db
+            WHERE bowl IS NOT NULL
+            GROUP BY bowl
+        ) sub;
+    """
+
+    cur.execute(global_query)
+    global_row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    # Convert list to dict
+    phase_dict = {row["phase"]: row for row in phase_rows}
+
+    return jsonify({
+        "phase": phase_dict,
+        "global": global_row
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True)

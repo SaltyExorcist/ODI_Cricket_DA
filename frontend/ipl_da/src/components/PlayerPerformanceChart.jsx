@@ -34,9 +34,13 @@ function PlayerPerformanceChart({ playerName }) {
       });
   }, [playerName]);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (data.length === 0) return <div>No data available for {playerName}</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
+  if (error) return <div className="text-red-500 text-center">{error}</div>;
+  if (data.length === 0) return <div className="text-gray-400 text-center">No data available for {playerName}</div>;
 
   const getColor = (stat) => {
     switch(stat) {
@@ -52,7 +56,7 @@ function PlayerPerformanceChart({ playerName }) {
       <select 
         value={selectedStat} 
         onChange={(e) => setSelectedStat(e.target.value)}
-        style={{ marginBottom: '20px' }}
+        className="mb-4 bg-gray-700 text-white border border-gray-600 rounded px-3 py-2"
       >
         <option value="runs">Runs</option>
         <option value="average">Average</option>
@@ -60,11 +64,11 @@ function PlayerPerformanceChart({ playerName }) {
       </select>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={data}>
-          <XAxis dataKey="year" />
-          <YAxis />
-          <Tooltip />
+          <XAxis dataKey="year" stroke="#fff" />
+          <YAxis stroke="#fff" />
+          <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
           <Legend />
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid stroke="#555" strokeDasharray="3 3" />
           <Line 
             type="monotone" 
             dataKey={selectedStat} 

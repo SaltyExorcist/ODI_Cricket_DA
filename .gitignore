@@ -1,0 +1,6 @@
+# Local Netlify folder
+.netlify
+__pycache__
+node_modules
+.env
+odi_bbb-25.csv

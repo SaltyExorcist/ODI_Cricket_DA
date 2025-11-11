@@ -4,19 +4,7 @@ function Button({ onClick, children }) {
   return (
     <button 
       onClick={onClick} 
-      style={{
-        width: '23%',
-        padding: '10px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        border: '1px solid #007bff',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '16px',
-        transition: 'background-color 0.3s',
-      }}
-      onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-      onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+      className="w-1/4 py-2 px-4 bg-blue-600 text-white border border-blue-600 rounded cursor-pointer text-base transition-colors duration-300 hover:bg-blue-700"
     >
       {children}
     </button>

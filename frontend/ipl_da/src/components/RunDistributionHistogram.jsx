@@ -25,8 +25,10 @@ function RunDistributionHistogram({ playerName }) {
       });
   }, [playerName]);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+  </div>;
+  if (error) return <div className="text-red-500 text-center">Error: {error}</div>;
 
   const filteredData = selectedTeam === 'All' 
     ? data 
@@ -45,26 +47,34 @@ function RunDistributionHistogram({ playerName }) {
   const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#00C49F', '#FFBB28', '#FF8042', '#0088FE'];
 
   return (
-    <div>
-      <h3>Run Distribution Histogram for {playerName}</h3>
-      <div>
-        <select value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
-          {teams.map(team => <option key={team} value={team}>{team}</option>)}
-        </select>
+    <div className="bg-gray-900 text-white min-h-screen p-8">
+      <div className="max-w-4xl mx-auto">
+        <h3 className="text-2xl font-bold mb-6">Run Distribution Histogram for {playerName}</h3>
+        <div className="mb-4">
+          <select 
+            value={selectedTeam} 
+            onChange={(e) => setSelectedTeam(e.target.value)}
+            className="bg-gray-800 text-white p-2 rounded"
+          >
+            {teams.map(team => <option key={team} value={team}>{team}</option>)}
+          </select>
+        </div>
+        <div className="h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={distributionData}>
+              <XAxis dataKey="range" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="count">
+                {distributionData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={distributionData}>
-          <XAxis dataKey="range" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="count">
-            {distributionData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
     </div>
   );
 }

@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Bar, Doughnut,Scatter } from 'react-chartjs-2';
-import { Chart, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { Chart, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 
 // Register Chart.js components
-Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 function SeasonOverview({ season }) {
   const [overview, setOverview] = useState(null);
 
   useEffect(() => {
     axios.get(`http://localhost:5000/api/season-overview?year=${season}`)
-      .then(response => setOverview(response.data));
+      .then(response => setOverview(response.data))
+      .catch(error => console.error('Error fetching season overview:', error));
   }, [season]);
 
-  if (!overview) return <div>Loading...</div>;
+  if (!overview) return (
+    <div className="flex justify-center items-center h-screen bg-gray-900">
+      <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
 
   const teamPerformanceData = {
     labels: overview.team_performance.map(team => team.team),
@@ -54,26 +59,35 @@ function SeasonOverview({ season }) {
   };
 
   return (
-    <div className="season-overview">
-      <h2>Season {season} Overview</h2>
-      <div className="chart-container">
-        <h3>Team Performance</h3>
-        <Bar data={teamPerformanceData} options={{ responsive: true }} />
+    <div className="bg-gray-900 text-white min-h-screen p-8">
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-3xl font-bold mb-8 text-center">Season {season} Overview</h2>
+        
+        <div className="grid md:grid-cols-2 gap-8 mb-12">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 className="text-xl font-semibold mb-4">Team Performance</h3>
+            <Bar data={teamPerformanceData} options={{ responsive: true, plugins: { legend: { labels: { color: 'white' } } } }} />
+          </div>
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 className="text-xl font-semibold mb-4">Top Scorers</h3>
+            <Doughnut data={topScorersData} options={{ responsive: true, plugins: { legend: { labels: { color: 'white' } } } }} />
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-12">
+          <h3 className="text-xl font-semibold mb-4">Top Bowlers</h3>
+          <Bar data={topBowlersData} options={{ responsive: true, plugins: { legend: { labels: { color: 'white' } } } }} />
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+          <h3 className="text-xl font-semibold mb-4">Season Highlights</h3>
+          <ul className="space-y-2">
+            {overview.highlights.map((highlight, index) => (
+              <li key={index} className="border-b border-gray-700 pb-2">{highlight}</li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <div className="chart-container">
-        <h3>Top Scorers</h3>
-        <Bar data={topScorersData} options={{ responsive: true }} />
-      </div>
-      <div className="chart-container">
-        <h3>Top Bowlers</h3>
-        <Bar data={topBowlersData} options={{ responsive: true }} />
-      </div>
-      <h3>Season Highlights</h3>
-      <ul>
-        {overview.highlights.map((highlight, index) => (
-          <li key={index}>{highlight}</li>
-        ))}
-      </ul>
     </div>
   );
 }
