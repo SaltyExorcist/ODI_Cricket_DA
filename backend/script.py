@@ -721,7 +721,24 @@ def get_batter_line_length_sr():
                     WHEN COUNT(*) = 0 THEN 0
                     ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
                 END, 2
-            ) AS strike_rate
+            ) AS strike_rate,
+            ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+            ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
+            ROUND(
+                    CASE WHEN COUNT(control) > 0 
+                        THEN (
+                            SUM(
+                                COALESCE(
+                                    NULLIF(
+                                        NULLIF(LOWER(control), 'nan'),
+                                        ''
+                                    )::NUMERIC,
+                                    0
+                                )
+                            ) / COUNT(control) * 100
+                        )
+                        ELSE 0 END, 2
+                ) AS control_pct
         FROM odi_db
         WHERE bat = %s
         GROUP BY line, length
@@ -732,6 +749,66 @@ def get_batter_line_length_sr():
     conn.close()
 
     return jsonify(data)
+
+@app.route("/api/batter-line-length-sr2")
+def batter_line_length_sr2():
+    player = request.args.get("player")
+    #bowl_style = request.args.get("bowl_style")  # 'pace' or 'spin'
+    
+    where_clause = "WHERE bat = %s"
+    params = [player]
+
+    bowl_style = request.args.get("bowl_style")
+    if bowl_style:
+        where_clause += " AND bowl_kind ILIKE %s"
+        params.append(bowl_style)
+
+
+    bowler = request.args.get("bowler")  # optional
+    if bowler:
+        where_clause += " AND bowl ILIKE %s"
+        params.append(bowler)
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    query = f"""
+        SELECT line, length,
+               SUM(CAST(batruns AS FLOAT)) AS total_runs,
+               COUNT(*) AS balls_faced,
+               ROUND(
+                CASE 
+                    WHEN COUNT(*) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
+                END, 2
+            ) AS strike_rate,
+               ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+               ROUND(SUM(CASE WHEN outcome IN ('four','six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
+               ROUND(
+                    CASE WHEN COUNT(control) > 0 
+                        THEN (
+                            SUM(
+                                COALESCE(
+                                    NULLIF(
+                                        NULLIF(LOWER(control), 'nan'),
+                                        ''
+                                    )::NUMERIC,
+                                    0
+                                )
+                            ) / COUNT(control) * 100
+                        )
+                        ELSE 0 END, 2
+                ) AS control_pct
+        FROM odi_db
+        {where_clause}
+        GROUP BY line, length;
+    """
+    
+    cur.execute(query, tuple(params))
+    data = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(data)
+
 
 
 # ===============================
@@ -831,7 +908,24 @@ def get_bowler_line_length():
                     WHEN COUNT(*) = 0 THEN 0
                     ELSE CAST(SUM(CAST(bowlruns AS FLOAT)) / NULLIF(COUNT(*) / 6.0, 0) AS NUMERIC)
                 END, 2
-            ) AS economy
+            ) AS economy,
+            ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+            ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
+            ROUND(
+                    CASE WHEN COUNT(control) > 0 
+                        THEN (
+                            SUM(
+                                COALESCE(
+                                    NULLIF(
+                                        NULLIF(LOWER(control), 'nan'),
+                                        ''
+                                    )::NUMERIC,
+                                    0
+                                )
+                            ) / COUNT(control) * 100
+                        )
+                        ELSE 0 END, 2
+                ) AS control_pct
         FROM odi_db
         WHERE bowl = %s
         GROUP BY line, length
@@ -986,11 +1080,25 @@ def get_batter_wagon():
         if not player:
             return jsonify({"error": "Missing 'player' parameter"}), 400
         
+        where_clause = "WHERE bat = %s"
+        params = [player]
+
+        bowl_style = request.args.get("bowl_style")
+        if bowl_style:
+            where_clause += " AND bowl_kind ILIKE %s"
+            params.append(bowl_style)
+        #bowl_type = request.args.get('bowl_type')
+
+        bowler = request.args.get("bowler")
+        if bowler:
+            where_clause += " AND bowl ILIKE %s"
+            params.append(bowler)
+        
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
         # --- Fetch and cast numeric columns ---
-        query = """
+        query = f"""
             SELECT 
                 wagonZone,
                 COUNT(*) AS total_balls,
@@ -1015,11 +1123,11 @@ def get_batter_wagon():
                 ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct
 
             FROM odi_db
-            WHERE bat = %s
+            {where_clause}
             GROUP BY wagonZone;
 
         """
-        cur.execute(query, (player,))
+        cur.execute(query, tuple(params))
         results = cur.fetchall()
 
         
@@ -1028,6 +1136,8 @@ def get_batter_wagon():
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
+    
+
 
 @app.route("/api/batter-skill-profile")
 def player_skill_profile():
@@ -1426,6 +1536,70 @@ def bowlers_global_benchmarks():
         "phase": phase_dict,
         "global": global_row
     })
+
+@app.route("/api/batter-zone-summary")
+def batter_zone_summary():
+    player = request.args.get("player")
+    bowl_style = request.args.get("bowl_style")
+
+    if not player:
+        return jsonify({"error": "Missing player"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    query = f"""
+        SELECT
+            ROUND(SUM(CAST(batruns AS NUMERIC))/NULLIF(COUNT(ball_id),0)*100,2) AS strike_rate,
+            ROUND(SUM(CASE WHEN outcome IN ('four','six') THEN 1 ELSE 0 END)::NUMERIC/COUNT(*)*100,2) AS boundary_pct,
+            ROUND(SUM(CASE WHEN LOWER(outcome)='no run' THEN 1 ELSE 0 END)::NUMERIC/COUNT(*)*100,2) AS dot_pct,
+            ROUND(
+                    CASE WHEN COUNT(control) > 0 
+                        THEN (
+                            SUM(
+                                COALESCE(
+                                    NULLIF(
+                                        NULLIF(LOWER(control), 'nan'),
+                                        ''
+                                    )::NUMERIC,
+                                    0
+                                )
+                            ) / COUNT(control) * 100
+                        )
+                        ELSE 0 END, 2
+                ) AS ctrl_pct,
+            ROUND(
+                CAST(
+                    (
+                        (0.4 * 
+                            (
+                                ((SUM(CAST(batruns AS NUMERIC)) - 
+                                SUM(CASE WHEN outcome IN ('four', 'six') THEN CAST(batruns AS NUMERIC) ELSE 0 END))
+                                / NULLIF(
+                                    (COUNT(*) - SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END))
+                                , 0)) * 100
+                            )
+                        )
+                        + (0.4 * (SUM(CASE WHEN CAST(batruns AS INT)=1 THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100))
+                        + (0.2 * (100 - (SUM(CASE WHEN LOWER(outcome)='no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100)))
+                    ) AS NUMERIC
+                ), 2
+            ) AS sri
+        FROM odi_db
+        WHERE bat=%s
+        { "AND bowl_kind ILIKE %s" if bowl_style else "" }
+    """
+
+    params = [player]
+    if bowl_style:
+        params.append(f"%{bowl_style}%")
+
+    cur.execute(query, params)
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    return jsonify(result or {})
 
 
 if __name__ == '__main__':

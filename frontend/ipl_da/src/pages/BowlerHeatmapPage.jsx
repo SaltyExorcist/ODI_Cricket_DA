@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import PitchHeatmap3D from "../components/BowlerLineLengthHeatmap";
+import BowlerLineLengthHeatmap from "../components/BowlerLineLengthHeatmap";
 
 const BowlerHeatmapPage = () => {
   const [player, setPlayer] = useState("");
@@ -21,7 +21,7 @@ const BowlerHeatmapPage = () => {
       </div>
 
       <div className="mt-6">
-        <PitchHeatmap3D player={player} />
+        <BowlerLineLengthHeatmap player={player} />
       </div>
     </div>
   );

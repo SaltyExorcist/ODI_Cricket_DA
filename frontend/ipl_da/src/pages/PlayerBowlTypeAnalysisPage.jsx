@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Funnel } from 'lucide-react';
 import BatterBowlTypeAnalysis from '../components/BatterBowlTypeAnalysis';
 
 function PlayerBowlTypeAnalysisPage() {
@@ -21,7 +21,7 @@ function PlayerBowlTypeAnalysisPage() {
       <div className="bg-gradient-to-br from-purple-600 to-pink-700 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <Zap className="w-8 h-8" />
+            <Funnel className="w-8 h-8" />
           </div>
           <div>
             <h1 className="text-4xl font-bold">{player}</h1>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Activity, Users, Target, ChevronRight } from 'lucide-react';
+import { BarChart3, Activity, Users, Target, ChevronRight,Hexagon,Grid3x3,ChartScatter} from 'lucide-react';
 
 function AnalyticsPage() {
   return (
@@ -16,7 +16,7 @@ function AnalyticsPage() {
         <AnalysisCard
           title="Batting Statistics Scatter"
           description="Compare strike rates and averages across all players with minimum 25 matches"
-          icon={<BarChart3 className="w-6 h-6" />}
+          icon={<ChartScatter className="w-6 h-6" />}
           color="blue"
           to="/scatter"
         />
@@ -24,7 +24,7 @@ function AnalyticsPage() {
         <AnalysisCard
           title="Bowling Statistics Scatter"
           description="Analyze economy rates and bowling averages for qualified bowlers"
-          icon={<Activity className="w-6 h-6" />}
+          icon={<ChartScatter className="w-6 h-6" />}
           color="green"
           to="/scatter"
         />
@@ -49,17 +49,33 @@ function AnalyticsPage() {
         <AnalysisCard
           title="Batter Heatmap Analysis"
           description="Heatmap of batsman Strike Rate grouped by line and length"
-          icon={<Users className="w-6 h-6" />}
-          color="purple"
+          icon={<Grid3x3 className="w-6 h-6" />}
+          color="green"
           to="/batter-heatmap"
         />
 
         <AnalysisCard
           title="Bowler Heatmap Analysis"
           description="Heatmap of Bowler wickets grouped by line and length"
-          icon={<Users className="w-6 h-6" />}
-          color="purple"
+          icon={<Grid3x3 className="w-6 h-6" />}
+          color="green"
           to="/bowler-heatmap"
+        />
+
+        <AnalysisCard
+          title="Batter Spider Chart Analysis"
+          description="Spider chart of two batters based on different metrics for comparison"
+          icon={< Hexagon className="w-6 h-6" />}
+          color="purple"
+          to="/compare-batter"
+        />
+
+        <AnalysisCard
+          title="Bowler Spider Chart Analysis"
+          description="Spider chart of two bowlers based on different metrics for comparison"
+          icon={< Hexagon className="w-6 h-6" />}
+          color="purple"
+          to="/compare-bowler"
         />
 
       </div>
@@ -74,9 +90,7 @@ function AnalyticsPage() {
           <FeatureItem text="Performance by bowling type (pace, spin, etc.)" />
           <FeatureItem text="Line and length heatmaps" />
           <FeatureItem text="Shot selection analysis" />
-          <FeatureItem text="Year-over-year trends" />
           <FeatureItem text="Opposition-specific statistics" />
-          <FeatureItem text="Venue and condition analysis" />
         </div>
         <Link 
           to="/players"

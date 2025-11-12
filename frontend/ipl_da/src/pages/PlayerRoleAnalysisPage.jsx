@@ -26,7 +26,7 @@ function PlayerRoleAnalysisPage() {
           <div>
             <h1 className="text-4xl font-bold">{player}</h1>
             <p className="text-blue-100 text-lg mt-1">
-              Role-Based Performance Analysis
+              Phase-Wise Performance Analysis
             </p>
           </div>
         </div>

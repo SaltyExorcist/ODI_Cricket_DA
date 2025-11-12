@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { TrendingUp, Target, Award, BarChart3, ArrowLeft } from 'lucide-react';
+import { TrendingUp, Target, Award, BarChart3, ArrowLeft,CircleArrowOutDownLeft,Compass,Funnel} from 'lucide-react';
 import PlayerPerformanceChart from '../PlayerPerformanceChart';
 
 function PlayerStats() {
@@ -66,15 +66,15 @@ function PlayerStats() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Link 
-          to={`/player/${encodeURIComponent(player)}/role-analysis`}
+          to={`/player/${encodeURIComponent(player)}/phase-analysis`}
           className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all group"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                <BarChart3 className="w-5 h-5" />
+                <BarChart3 className="w-5 h-5" />   
               </div>
-              <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">Role Analysis</span>
+              <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">Phase Analysis</span>
             </div>
             <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors rotate-180" />
           </div>
@@ -117,11 +117,26 @@ function PlayerStats() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
-                <TrendingUp className="w-5 h-5" />
+                <Funnel className="w-5 h-5" />
               </div>
               <span className="font-semibold text-gray-800 group-hover:text-purple-600 transition-colors">BowlType Analysis</span>
             </div>
             <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors rotate-180" />
+          </div>
+        </Link>
+
+        <Link 
+          to={`/player/${encodeURIComponent(player)}/batterzone-analysis`}
+          className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                <CircleArrowOutDownLeft className="w-5 h-5" />
+              </div>
+              <span className="font-semibold text-gray-800 group-hover:text-purple-600 transition-colors">Batter Zone Analysis</span>
+            </div>
+            < ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors rotate-180" />
           </div>
         </Link>
 
@@ -132,7 +147,7 @@ function PlayerStats() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
-                <TrendingUp className="w-5 h-5" />
+                <Compass className="w-5 h-5" />
               </div>
               <span className="font-semibold text-gray-800 group-hover:text-purple-600 transition-colors">Batter Wagon Wheel</span>
             </div>

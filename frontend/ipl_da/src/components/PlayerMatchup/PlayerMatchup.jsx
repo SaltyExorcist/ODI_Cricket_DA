@@ -1,66 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import SearchBar from '../SearchBar';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import SearchBar from "../SearchBar";
+import BatterLineLengthHeatmap from "../BatterLineLengthHeatmap";
+import BatterWagonWheel from "../BatterWagonWheel";
 
 function PlayerMatchup() {
   const [batsmen, setBatsmen] = useState([]);
   const [bowlers, setBowlers] = useState([]);
-  const [selectedBatsman, setSelectedBatsman] = useState('');
-  const [selectedBowler, setSelectedBowler] = useState('');
+  const [selectedBatsman, setSelectedBatsman] = useState("");
+  const [selectedBowler, setSelectedBowler] = useState("");
   const [matchupData, setMatchupData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/players')
-      .then(response => {
-        setBatsmen(response.data);
-        setBowlers(response.data);
+    axios
+      .get("http://localhost:5000/api/players")
+      .then((res) => {
+        setBatsmen(res.data);
+        setBowlers(res.data);
       })
-      .catch(error => console.error('Error fetching players:', error));
+      .catch((err) => console.error("Error fetching players:", err));
   }, []);
 
   const fetchMatchupData = () => {
-    if (selectedBatsman && selectedBowler) {
-      axios.get(`http://localhost:5000/api/player-matchup?batsman=${selectedBatsman}&bowler=${selectedBowler}`)
-        .then(response => setMatchupData(response.data))
-        .catch(error => console.error('Error fetching matchup data:', error));
-    }
+    if (!selectedBatsman || !selectedBowler) return;
+    setLoading(true);
+    axios
+      .get(
+        `http://localhost:5000/api/player-matchup?batsman=${encodeURIComponent(
+          selectedBatsman
+        )}&bowler=${encodeURIComponent(selectedBowler)}`
+      )
+      .then((res) => setMatchupData(res.data))
+      .catch((err) => console.error("Error fetching matchup data:", err))
+      .finally(() => setLoading(false));
   };
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold mb-8 text-center">Player Matchup</h2>
-        <div className="mb-8 space-y-4">
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-3xl font-extrabold text-center text-gray-800 mb-8">
+          Player Matchup Analysis
+        </h2>
+
+        {/* Player Selectors */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
           <SearchBar
             items={batsmen}
-            placeholder="Search for a batsman"
+            placeholder="Search for a batsman..."
             onSelect={setSelectedBatsman}
           />
           <SearchBar
             items={bowlers}
-            placeholder="Search for a bowler"
+            placeholder="Search for a bowler..."
             onSelect={setSelectedBowler}
           />
-          <button 
+        </div>
+
+        <div className="flex justify-center mb-6">
+          <button
             onClick={fetchMatchupData}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-300"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all"
           >
-            Get Matchup Data
+            Analyze Matchup
           </button>
         </div>
+
+        {loading && (
+          <p className="text-center text-gray-500 text-lg">Loading...</p>
+        )}
+
+        {/* Results Section */}
         {matchupData && (
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-            <h3 className="text-xl font-semibold mb-4 text-center">{selectedBatsman} vs {selectedBowler}</h3>
-            <table className="w-full">
-              <tbody>
-                {Object.entries(matchupData).map(([key, value]) => (
-                  <tr key={key} className="border-b border-gray-700">
-                    <th className="py-2 text-left text-gray-400">{key.replace(/_/g, ' ').toUpperCase()}</th>
-                    <td className="py-2 text-right">{value || 'N/A'}</td>
+          <div className="space-y-10">
+            {/* Summary Stats */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+              <h3 className="text-2xl font-semibold text-center text-gray-800 mb-4">
+                {selectedBatsman} vs {selectedBowler}
+              </h3>
+              <table className="min-w-full text-center border border-gray-300 rounded-xl overflow-hidden">
+                <thead className="bg-gray-100 text-gray-700 uppercase text-sm tracking-wide">
+                  <tr>
+                    <th className="py-3 px-4 border-r border-gray-200">Metric</th>
+                    <th className="py-3 px-4">Value</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {Object.entries(matchupData).map(([key, val]) => (
+                    <tr key={key} className="border-t border-gray-200">
+                      <td className="py-3 px-4 font-medium capitalize">
+                        {key.replace(/_/g, " ")}
+                      </td>
+                      <td className="py-3 px-4 text-gray-800 font-semibold">
+                        {val !== null ? val : "–"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Visualization Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-200">
+                <h4 className="text-xl font-bold mb-4 text-center text-gray-700">
+                  Line & Length Heatmap vs {selectedBowler}
+                </h4>
+                <BatterLineLengthHeatmap
+                  player={selectedBatsman}
+                  bowler={selectedBowler}   
+                />
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-200">
+                <h4 className="text-xl font-bold mb-4 text-center text-gray-700">
+                  Wagon Wheel vs {selectedBowler}
+                </h4>
+                <BatterWagonWheel
+                  player={selectedBatsman}
+                  bowler={selectedBowler}  
+                />
+              </div>
+            </div>
+
           </div>
         )}
       </div>

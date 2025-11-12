@@ -10,7 +10,7 @@ function plasmaColor(value, max) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const BatterWagonWheel = ({ player }) => {
+const BatterWagonWheel = ({ player ,bowlType,bowler}) => {
   const [data, setData] = useState([]);
   const [metric, setMetric] = useState("total_runs"); // 🔁 default metric
   const [hovered, setHovered] = useState(null);
@@ -21,11 +21,15 @@ const BatterWagonWheel = ({ player }) => {
       .get(
         `http://localhost:5000/api/batter-wagon?player=${encodeURIComponent(
           player
-        )}`
+        )}${
+    bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
+  }${
+    bowler ? `&bowler=${encodeURIComponent(bowler)}` : ""
+  }`
       )
       .then((res) => setData(res.data || []))
       .catch((err) => console.error("Error fetching wagon wheel:", err));
-  }, [player]);
+  }, [player,bowlType]);
 
   if (!data || data.length === 0)
     return (

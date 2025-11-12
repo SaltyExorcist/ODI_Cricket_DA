@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import PitchHeatmap3D from "../components/BatterLineLengthHeatmap";
+import BatterLineLengthHeatmap from "../components/BatterLineLengthHeatmap";
 
 const BatterHeatmapPage = () => {
   const [player, setPlayer] = useState("");
@@ -21,7 +21,7 @@ const BatterHeatmapPage = () => {
       </div>
 
       <div className="mt-6">
-        <PitchHeatmap3D player={player} />
+        <BatterLineLengthHeatmap player={player} />
       </div>
     </div>
   );
