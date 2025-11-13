@@ -753,61 +753,105 @@ def get_batter_line_length_sr():
 @app.route("/api/batter-line-length-sr2")
 def batter_line_length_sr2():
     player = request.args.get("player")
-    #bowl_style = request.args.get("bowl_style")  # 'pace' or 'spin'
-    
+    if not player:
+        return jsonify({"error": "Missing player"}), 400
+
     where_clause = "WHERE bat = %s"
     params = [player]
 
+    bowl_kind = request.args.get("bowl_kind")
+    if bowl_kind:
+        where_clause += " AND bowl_kind ILIKE %s"
+        params.append(bowl_kind)
+
     bowl_style = request.args.get("bowl_style")
     if bowl_style:
-        where_clause += " AND bowl_kind ILIKE %s"
+        where_clause += " AND bowl_style ILIKE %s"
         params.append(bowl_style)
 
+    phase = request.args.get("phase")  # optional (Powerplay / Middle Overs / Death Overs)
+    if phase:
+        where_clause += """ AND (
+            CASE 
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                ELSE 'Death Overs'
+            END
+        ) ILIKE %s"""
+        params.append(phase)
 
     bowler = request.args.get("bowler")  # optional
     if bowler:
         where_clause += " AND bowl ILIKE %s"
         params.append(bowler)
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
-    query = f"""
-        SELECT line, length,
-               SUM(CAST(batruns AS FLOAT)) AS total_runs,
-               COUNT(*) AS balls_faced,
-               ROUND(
-                CASE 
-                    WHEN COUNT(*) = 0 THEN 0
-                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
-                END, 2
-            ) AS strike_rate,
-               ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
-               ROUND(SUM(CASE WHEN outcome IN ('four','six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
-               ROUND(
-                    CASE WHEN COUNT(control) > 0 
-                        THEN (
-                            SUM(
-                                COALESCE(
-                                    NULLIF(
-                                        NULLIF(LOWER(control), 'nan'),
-                                        ''
-                                    )::NUMERIC,
-                                    0
-                                )
-                            ) / COUNT(control) * 100
+
+    #  Common SELECT fields
+    select_fields = """
+        line, 
+        length,
+        SUM(CAST(batruns AS FLOAT)) AS total_runs,
+        COUNT(*) AS balls_faced,
+        ROUND(
+            CASE 
+                WHEN COUNT(*) = 0 THEN 0
+                ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
+            END, 2
+        ) AS strike_rate,
+        ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+        ROUND(SUM(CASE WHEN outcome IN ('four','six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
+        ROUND(
+            CASE WHEN COUNT(control) > 0 
+                THEN (
+                    SUM(
+                        COALESCE(
+                            NULLIF(
+                                NULLIF(LOWER(control), 'nan'),
+                                ''
+                            )::NUMERIC,
+                            0
                         )
-                        ELSE 0 END, 2
-                ) AS control_pct
-        FROM odi_db
-        {where_clause}
-        GROUP BY line, length;
+                    ) / COUNT(control) * 100
+                )
+                ELSE 0 END, 2
+        ) AS control_pct
     """
-    
+
+    # ✅ If phase-based breakdown is needed (like for matchup/phase components)
+    if phase:
+        query = f"""
+            SELECT 
+                {select_fields},
+                CASE 
+                    WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                    WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                    ELSE 'Death Overs'
+                END AS phase
+            FROM odi_db
+            {where_clause}
+            GROUP BY line, length, phase
+            ORDER BY line, length;
+        """
+    else:
+        # ✅ Global aggregation — no phase grouping
+        query = f"""
+            SELECT 
+                {select_fields}
+            FROM odi_db
+            {where_clause}
+            GROUP BY line, length
+            ORDER BY line, length;
+        """
+
     cur.execute(query, tuple(params))
     data = cur.fetchall()
     cur.close()
     conn.close()
+
     return jsonify(data)
+
 
 
 
@@ -1072,35 +1116,26 @@ def get_batter_bowl_types():
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
-
-@app.route('/api/batter-wagon', methods=['GET'])
-def get_batter_wagon():
+    
+@app.route('/api/batter-bowl-phase-types', methods=['GET'])
+def get_batter_bowl_phase_types():
     try:
         player = request.args.get('player')
         if not player:
             return jsonify({"error": "Missing 'player' parameter"}), 400
         
-        where_clause = "WHERE bat = %s"
-        params = [player]
-
-        bowl_style = request.args.get("bowl_style")
-        if bowl_style:
-            where_clause += " AND bowl_kind ILIKE %s"
-            params.append(bowl_style)
-        #bowl_type = request.args.get('bowl_type')
-
-        bowler = request.args.get("bowler")
-        if bowler:
-            where_clause += " AND bowl ILIKE %s"
-            params.append(bowler)
-        
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
         # --- Fetch and cast numeric columns ---
-        query = f"""
-            SELECT 
-                wagonZone,
+        query = """
+            SELECT
+                CASE 
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                ELSE 'Death Overs'
+                END AS phase,
+                bowl_style,
                 COUNT(*) AS total_balls,
                 SUM(CAST(batruns AS NUMERIC)) AS total_runs,
                 SUM(CASE WHEN CAST("out" AS BOOLEAN) = TRUE THEN 1 ELSE 0 END) AS total_outs,
@@ -1123,11 +1158,12 @@ def get_batter_wagon():
                 ROUND(SUM(CASE WHEN outcome IN ('four', 'six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct
 
             FROM odi_db
-            {where_clause}
-            GROUP BY wagonZone;
+            WHERE bat = %s
+            GROUP BY bowl_style,phase
+            ORDER BY total_runs DESC;
 
         """
-        cur.execute(query, tuple(params))
+        cur.execute(query, (player,))
         results = cur.fetchall()
 
         
@@ -1136,7 +1172,112 @@ def get_batter_wagon():
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
-    
+
+@app.route("/api/batter-wagon")
+def batter_wagon():
+    player = request.args.get("player")
+    if not player:
+        return jsonify({"error": "Missing player"}), 400
+
+    # --- Build dynamic WHERE clause ---
+    where_clause = "WHERE bat = %s"
+    params = [player]
+
+    bowl_kind = request.args.get("bowl_kind")
+    if bowl_kind:
+        where_clause += " AND bowl_kind ILIKE %s"
+        params.append(bowl_kind)
+
+    bowl_style = request.args.get("bowl_style")
+    if bowl_style:
+        where_clause += " AND bowl_style ILIKE %s"
+        params.append(bowl_style)
+
+    bowler = request.args.get("bowler")
+    if bowler:
+        where_clause += " AND bowl ILIKE %s"
+        params.append(bowler)
+
+    phase = request.args.get("phase")
+    if phase:
+        where_clause += """ AND (
+            CASE 
+                WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                ELSE 'Death Overs'
+            END
+        ) ILIKE %s"""
+        params.append(phase)
+
+    # --- Query ---
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+     #  Common SELECT fields
+    select_fields = """
+            wagonZone,
+            COUNT(*) AS balls_faced,
+            SUM(CAST(batruns AS FLOAT)) AS total_runs,
+            ROUND(
+                CASE 
+                    WHEN COUNT(*) = 0 THEN 0
+                    ELSE CAST(SUM(CAST(batruns AS FLOAT)) / COUNT(*) * 100 AS NUMERIC)
+                END, 2
+            ) AS strike_rate,
+            ROUND(SUM(CASE WHEN outcome IN ('four','six') THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS boundary_pct,
+            ROUND(SUM(CASE WHEN LOWER(outcome) = 'no run' THEN 1 ELSE 0 END)::NUMERIC / COUNT(*) * 100, 2) AS dot_pct,
+            ROUND(
+                CASE WHEN COUNT(control) > 0 
+                    THEN (
+                        SUM(
+                            COALESCE(
+                                NULLIF(
+                                    NULLIF(LOWER(control), 'nan'),
+                                    ''
+                                )::NUMERIC,
+                                0
+                            )
+                        ) / COUNT(control) * 100
+                    )
+                    ELSE 0 END, 2
+            ) AS control_pct
+    """
+
+    # ✅ If phase-based breakdown is needed (like for matchup/phase components)
+    if phase and bowl_style:
+        query = f"""
+            SELECT 
+                {select_fields},
+                CASE 
+                    WHEN CAST(over AS INTEGER) <= 10 THEN 'Powerplay'
+                    WHEN CAST(over AS INTEGER) BETWEEN 11 AND 40 THEN 'Middle Overs'
+                    ELSE 'Death Overs'
+                END AS phase,
+                bowl_style
+            FROM odi_db
+            {where_clause}
+            GROUP BY wagonZone, phase,bowl_style
+            ORDER BY wagonZone;
+        """
+    else:
+        # ✅ Global aggregation — no phase grouping
+        query = f"""
+            SELECT 
+                {select_fields}
+            FROM odi_db
+            {where_clause}
+            GROUP BY wagonZone
+            ORDER BY wagonZone;
+        """
+
+    cur.execute(query, tuple(params))
+    data = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify(data)
+
 
 
 @app.route("/api/batter-skill-profile")

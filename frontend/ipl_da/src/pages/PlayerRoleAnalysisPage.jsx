@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Clock } from 'lucide-react';
 import PlayerRoleAnalysis from '../components/PlayerRoleAnalysis';
+import BatterBowlPhaseAnalysis from '../components/BatterBowlPhaseAnalysis';
 
 function PlayerRoleAnalysisPage() {
   const { player } = useParams();
@@ -35,6 +36,7 @@ function PlayerRoleAnalysisPage() {
       {/* Analysis Component */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <PlayerRoleAnalysis playerName={player} />
+        <BatterBowlPhaseAnalysis/>
       </div>
     </div>
   );

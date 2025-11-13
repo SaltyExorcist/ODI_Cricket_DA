@@ -10,7 +10,7 @@ function plasmaColor(value, max) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const BatterWagonWheel = ({ player ,bowlType,bowler}) => {
+const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
   const [data, setData] = useState([]);
   const [metric, setMetric] = useState("total_runs"); // 🔁 default metric
   const [hovered, setHovered] = useState(null);
@@ -22,14 +22,19 @@ const BatterWagonWheel = ({ player ,bowlType,bowler}) => {
         `http://localhost:5000/api/batter-wagon?player=${encodeURIComponent(
           player
         )}${
-    bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
+    bowlKind ? `&bowl_kind=${encodeURIComponent(bowlKind)}` : ""
   }${
     bowler ? `&bowler=${encodeURIComponent(bowler)}` : ""
+  }${
+    phase ? `&phase=${encodeURIComponent(phase)}` : ""
+  }${
+    bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
   }`
       )
+      //console.log("working")
       .then((res) => setData(res.data || []))
       .catch((err) => console.error("Error fetching wagon wheel:", err));
-  }, [player,bowlType]);
+  }, [player,bowlKind,bowler,phase]);
 
   if (!data || data.length === 0)
     return (

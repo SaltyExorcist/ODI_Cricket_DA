@@ -6,9 +6,9 @@ import {useParams} from "react-router-dom"
 
 const BatterWeakZonePage = () => {
   const { player } = useParams();
-  const [bowlType, setBowlType] = useState("pace bowler");
+  const [bowlKind, setbowlKind] = useState("pace bowler");
 
-  const handleChange = (e) => setBowlType(e.target.value);
+  const handleChange = (e) => setbowlKind(e.target.value);
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -19,7 +19,7 @@ const BatterWeakZonePage = () => {
       {/* Bowler Type Selector */}
       <div className="flex justify-center mb-6">
         <select
-          value={bowlType}
+          value={bowlKind}
           onChange={handleChange}
           className="border border-gray-300 rounded-lg px-4 py-2 text-lg shadow-sm focus:ring-2 focus:ring-blue-500"
         >
@@ -31,19 +31,19 @@ const BatterWeakZonePage = () => {
       {/* Main Visualization Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="col-span-1">
-          <BatterMetricSummary player={player} bowlType={bowlType} />
+          <BatterMetricSummary player={player} bowlKind={bowlKind} />
         </div>
 
          {/* Viz Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Heatmap View */}
         <div className="p-4 bg-white rounded-xl shadow-md">
-          <BatterLineLengthHeatmap player={player} bowlType={bowlType} />
+          <BatterLineLengthHeatmap player={player} bowlKind={bowlKind} />
         </div>
 
         {/* Wagon Wheel View */}
         <div className="p-4 bg-white rounded-xl shadow-md">
-          <BatterWagonWheel player={player} bowlType={bowlType} />
+          <BatterWagonWheel player={player} bowlKind={bowlKind} />
         </div>
       </div>
 

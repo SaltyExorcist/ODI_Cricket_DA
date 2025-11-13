@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const BatterLineLengthHeatmap = ({ player ,bowlType,bowler}) => {
-  console.log("BatterLineLengthHeatmap rendered for player:", player, "bowlType:", bowlType);
+const BatterLineLengthHeatmap = ({ player ,bowlKind,bowler,phase,bowlType}) => {
   const [data, setData] = useState([]);
   const [batHand, setBatHand] = useState("");
   const [loading, setLoading] = useState(true);
@@ -23,10 +22,12 @@ const BatterLineLengthHeatmap = ({ player ,bowlType,bowler}) => {
       // ✅ Build URL safely
       const url = new URL("http://localhost:5000/api/batter-line-length-sr2");
       url.searchParams.append("player", player);
-      if (bowlType && bowlType !== "All") {
-        url.searchParams.append("bowl_style", bowlType);
+      if (bowlKind && bowlKind !== "All") {
+        url.searchParams.append("bowl_kind", bowlKind);
       }
+      if (bowlType) url.searchParams.append("bowl_style", bowlType);
       if (bowler) url.searchParams.append("bowler", bowler);
+      if (phase) url.searchParams.append("phase", phase);
       const res = await fetch(url);
 
       if (!res.ok) {
@@ -52,7 +53,7 @@ const BatterLineLengthHeatmap = ({ player ,bowlType,bowler}) => {
   };
 
   fetchData();
-}, [player, bowlType,bowler]);
+}, [player, bowlKind,bowler]);
 
 
   // Axis definitions

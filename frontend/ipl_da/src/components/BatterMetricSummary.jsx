@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const BatterMetricSummary = ({ player, bowlType }) => {
+const BatterMetricSummary = ({ player, bowlKind }) => {
   const [metrics, setMetrics] = useState(null);
 
   useEffect(() => {
@@ -9,12 +9,12 @@ const BatterMetricSummary = ({ player, bowlType }) => {
     axios
       .get(
         `http://localhost:5000/api/batter-zone-summary?player=${encodeURIComponent(player)}${
-          bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
+          bowlKind ? `&bowl_style=${encodeURIComponent(bowlKind)}` : ""
         }`
       )
       .then((res) => setMetrics(res.data))
       .catch((err) => console.error("Error fetching batter summary:", err));
-  }, [player, bowlType]);
+  }, [player, bowlKind]);
 
  if (!metrics)
     return (
@@ -30,7 +30,7 @@ const BatterMetricSummary = ({ player, bowlType }) => {
   return (
     <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
       <h3 className="text-xl font-semibold mb-4 text-center">
-        Key Batting Metrics vs {bowlType === "pace" ? "Pace" : "Spin"}
+        Key Batting Metrics vs {bowlKind === "pace" ? "Pace" : "Spin"}
       </h3>
       <table className="w-full text-center text-gray-700">
         <tbody>
