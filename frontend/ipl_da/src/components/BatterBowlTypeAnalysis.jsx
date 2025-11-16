@@ -14,7 +14,7 @@ function BatterBowlTypeAnalysis({ player }) {
     setLoading(true);
     setError(null);
 
-    axios.get(`http://localhost:5000/api/batter-bowl-types?player=${encodeURIComponent(player)}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/batter-bowl-types?player=${encodeURIComponent(player)}`)
       .then(response => {
         setData(response.data);
         setLoading(false);

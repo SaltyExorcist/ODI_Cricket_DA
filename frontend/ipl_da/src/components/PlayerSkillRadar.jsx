@@ -18,7 +18,7 @@ const PlayerSkillRadar = ({ player }) => {
     if (!player) return;
 
     axios
-      .get(`http://localhost:5000/api/player-skill-profile?player=${encodeURIComponent(player)}`)
+      .get(`${import.meta.env.VITE_API_BASE}/api/player-skill-profile?player=${encodeURIComponent(player)}`)
       .then((res) => {
         setData(res.data);
       })

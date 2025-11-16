@@ -10,31 +10,58 @@ function plasmaColor(value, max) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
+const BatterWagonWheel = ({ player, bowlKind, bowler, phase, bowlType }) => {
   const [data, setData] = useState([]);
   const [metric, setMetric] = useState("total_runs"); // 🔁 default metric
   const [hovered, setHovered] = useState(null);
+  const [batHand, setBatHand] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!player) return;
-    axios
-      .get(
-        `http://localhost:5000/api/batter-wagon?player=${encodeURIComponent(
-          player
-        )}${
-    bowlKind ? `&bowl_kind=${encodeURIComponent(bowlKind)}` : ""
-  }${
-    bowler ? `&bowler=${encodeURIComponent(bowler)}` : ""
-  }${
-    phase ? `&phase=${encodeURIComponent(phase)}` : ""
-  }${
-    bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
-  }`
-      )
-      //console.log("working")
-      .then((res) => setData(res.data || []))
-      .catch((err) => console.error("Error fetching wagon wheel:", err));
-  }, [player,bowlKind,bowler,phase]);
+    setLoading(true);
+
+    const fetch = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_BASE}/api/batter-wagon?player=${encodeURIComponent(
+            player
+          )}${bowlKind ? `&bowl_kind=${encodeURIComponent(bowlKind)}` : ""}${
+            bowler ? `&bowler=${encodeURIComponent(bowler)}` : ""
+          }${phase ? `&phase=${encodeURIComponent(phase)}` : ""}${
+            bowlType ? `&bowl_style=${encodeURIComponent(bowlType)}` : ""
+          }`
+        );
+        setData(res.data || []);
+      } catch (err) {
+        console.error("Error fetching wagon wheel:", err);
+        setData([]);
+      }
+
+      try {
+        const res2 = await axios.get(
+          `${import.meta.env.VITE_API_BASE}/api/player-stats?player=${encodeURIComponent(
+            player
+          )}`
+        );
+        if (res2?.bat_hand?.bat_hand) setBatHand(res2.bat_hand.bat_hand);
+      } catch (err) {
+        // non-fatal: keep batHand as default ""
+        console.warn("Could not fetch player bat hand:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetch();
+  }, [player, bowlKind, bowler, phase, bowlType]);
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-48 text-gray-500">
+        Loading wagon wheel...
+      </div>
+    );
 
   if (!data || data.length === 0)
     return (
@@ -60,6 +87,14 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
   const numZones = data.length;
   const angleStep = (2 * Math.PI) / numZones;
   const radiusScale = 180 / (maxValue || 1);
+
+  // Determine whether to invert mapping for left-hand batters.
+  // If LHB -> reverse the order of sectors (mirror clockwise direction).
+  const isLeftHander = batHand === "LHB";
+
+  // Utility to map visual index -> data index (reverses when LHB)
+  const zoneIndexFor = (visualIndex) =>
+    isLeftHander ? numZones - 1 - visualIndex : visualIndex;
 
   return (
     <div className="relative flex flex-col items-center space-y-4">
@@ -88,7 +123,13 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
       <svg width={width} height={height}>
         <circle cx={cx} cy={cy} r={200} fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
 
-        {data.map((zone, i) => {
+        {/* draw sectors using visual indices but read data via zoneIndexFor */}
+        {Array.from({ length: numZones }).map((_, visualI) => {
+          const i = visualI;
+          const dIndex = zoneIndexFor(i);
+          const zone = data[dIndex];
+
+          // angles use visual index so flipping order changes traversal direction
           const startAngle = i * angleStep - Math.PI / 2;
           const endAngle = (i + 1) * angleStep - Math.PI / 2;
           const value = parseFloat(zone[metric] || 0);
@@ -110,7 +151,7 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
 
           return (
             <path
-              key={i}
+              key={dIndex}
               d={pathData}
               fill={color}
               stroke="#111827"
@@ -123,7 +164,11 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
         })}
 
         {/* Labels */}
-        {data.map((zone, i) => {
+        {Array.from({ length: numZones }).map((_, visualI) => {
+          const i = visualI;
+          const dIndex = zoneIndexFor(i);
+          const zone = data[dIndex];
+
           const midAngle = (i + 0.5) * angleStep - Math.PI / 2;
           const value = parseFloat(zone[metric] || 0);
           const r = value * radiusScale;
@@ -132,7 +177,7 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
           const labelY = cy + (labelR + 20) * Math.sin(midAngle);
 
           return (
-            <g key={i}>
+            <g key={`label-${dIndex}`}>
               <text
                 x={cx + (r + 20) * Math.cos(midAngle)}
                 y={cy + (r + 20) * Math.sin(midAngle)}
@@ -162,9 +207,7 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
       {/* Tooltip */}
       {hovered && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-white border border-gray-300 rounded-lg p-2 text-xs shadow-md z-10">
-          <div className="font-semibold text-blue-700">
-            Zone {hovered.wagonzone}
-          </div>
+          <div className="font-semibold text-blue-700">Zone {hovered.wagonzone}</div>
           <div>Runs: {hovered.total_runs}</div>
           <div>SR: {hovered.strike_rate}</div>
           <div>Dot%: {hovered.dot_pct}</div>
@@ -172,7 +215,10 @@ const BatterWagonWheel = ({ player ,bowlKind,bowler,phase,bowlType}) => {
         </div>
       )}
 
-      <div className="text-sm text-gray-600 mt-1">Current metric: <b>{metricLabel}</b></div>
+      <div className="text-sm text-gray-600 mt-1">
+        Current metric: <b>{metricLabel}</b>{" "}
+        {isLeftHander ? <span>— inverted for LHB</span> : null}
+      </div>
     </div>
   );
 };

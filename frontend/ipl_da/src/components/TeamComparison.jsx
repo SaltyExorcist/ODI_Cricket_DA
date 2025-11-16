@@ -10,7 +10,7 @@ function TeamComparison({ team1, team2 }) {
   const [comparisonData, setComparisonData] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/team-comparison?team1=${team1}&team2=${team2}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/team-comparison?team1=${team1}&team2=${team2}`)
       .then(response => setComparisonData(response.data))
       .catch(error => console.error('Error fetching team comparison:', error));
   }, [team1, team2]);

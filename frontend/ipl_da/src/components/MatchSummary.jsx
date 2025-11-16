@@ -10,7 +10,7 @@ function MatchSummary({ matchId }) {
   const [summary, setSummary] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/match-summary?match_id=${matchId}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/match-summary?match_id=${matchId}`)
       .then(response => setSummary(response.data))
       .catch(error => console.error('Error fetching match summary:', error));
   }, [matchId]);

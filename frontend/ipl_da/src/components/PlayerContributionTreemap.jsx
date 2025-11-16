@@ -7,7 +7,7 @@ function PlayerContributionTreemap({ teamName, season }) {
   const [contributionType, setContributionType] = useState('runs');
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/team-contributions?team=${teamName}&season=${season}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/team-contributions?team=${teamName}&season=${season}`)
       .then(response => {
         setData(response.data);
       })

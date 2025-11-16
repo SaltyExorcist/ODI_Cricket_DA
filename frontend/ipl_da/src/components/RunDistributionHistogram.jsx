@@ -12,7 +12,7 @@ function RunDistributionHistogram({ playerName }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    axios.get(`http://localhost:5000/api/player-run-distribution?player=${playerName}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/player-run-distribution?player=${playerName}`)
       .then(response => {
         setData(response.data.distribution);
         setTeams(['All', ...new Set(response.data.distribution.map(item => item.opponent))]);

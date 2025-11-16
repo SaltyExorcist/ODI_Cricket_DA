@@ -14,7 +14,7 @@ function PlayerMatchup() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/players")
+      .get(`${import.meta.env.VITE_API_BASE}/api/players`)
       .then((res) => {
         setBatsmen(res.data);
         setBowlers(res.data);
@@ -27,7 +27,7 @@ function PlayerMatchup() {
     setLoading(true);
     axios
       .get(
-        `http://localhost:5000/api/player-matchup?batsman=${encodeURIComponent(
+        `${import.meta.env.VITE_API_BASE}/api/player-matchup?batsman=${encodeURIComponent(
           selectedBatsman
         )}&bowler=${encodeURIComponent(selectedBowler)}`
       )

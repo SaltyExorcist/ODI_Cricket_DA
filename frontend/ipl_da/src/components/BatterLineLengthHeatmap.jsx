@@ -20,7 +20,7 @@ const BatterLineLengthHeatmap = ({ player ,bowlKind,bowler,phase,bowlType}) => {
   const fetchData = async () => {
     try {
       // ✅ Build URL safely
-      const url = new URL("http://localhost:5000/api/batter-line-length-sr2");
+      const url = new URL(`${import.meta.env.VITE_API_BASE}/api/batter-line-length-sr2`);
       url.searchParams.append("player", player);
       if (bowlKind && bowlKind !== "All") {
         url.searchParams.append("bowl_kind", bowlKind);
@@ -40,7 +40,7 @@ const BatterLineLengthHeatmap = ({ player ,bowlKind,bowler,phase,bowlType}) => {
       setData(json);
 
        const res2 = await fetch(
-        `http://localhost:5000/api/player-stats?player=${encodeURIComponent(player)}`
+        `${import.meta.env.VITE_API_BASE}/api/player-stats?player=${encodeURIComponent(player)}`
       );
       const json2 = await res2.json();
       if (json2?.bat_hand?.bat_hand) setBatHand(json2.bat_hand.bat_hand);

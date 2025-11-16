@@ -12,7 +12,7 @@ function PlayerTypeAgainstAnalysis({ playerName }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    axios.get(`http://localhost:5000/api/player-typeagainst-analysis?player=${playerName}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/player-typeagainst-analysis?player=${playerName}`)
       .then(response => {
         setData(response.data);
         setLoading(false);

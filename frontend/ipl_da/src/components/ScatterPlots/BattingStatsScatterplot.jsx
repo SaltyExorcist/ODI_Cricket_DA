@@ -14,7 +14,7 @@ const BattingStatsScatterplot = () => {
   const [nameFilter, setNameFilter] = useState('');
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/batscatter')
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/batscatter`)
       .then(response => {
         const formattedData = response.data.map(item => ({
           x: parseFloat(item.strike_rate),

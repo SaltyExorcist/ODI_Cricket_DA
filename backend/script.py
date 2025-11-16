@@ -3,19 +3,28 @@ from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from decimal import Decimal
+import os
+from dotenv import load_dotenv
 #from extra_endpoints import *
 
 
 app = Flask(__name__)
-CORS(app,origins=["http://localhost:5173"])
+CORS(app,origins=["http://localhost:5173","https://odi-da.netlify.app"])
+
+load_dotenv()
+# Database connection parameters
+db_params = {
+    "host": os.getenv("DB_HOST"),
+    "database": os.getenv("DB_DATABASE"),
+    "user": os.getenv("DB_USERNAME"),
+    "password": os.getenv("DB_PASSWORD"),
+    "port": os.getenv("DB_PORT"),
+    "sslmode": "require"
+}
 
 # Database connection function
 def get_db_connection():
-    conn=psycopg2.connect(
-        host="localhost",
-        database="odi_db",
-        user="postgres",
-        password="Subhro@02")
+    conn=psycopg2.connect(**db_params)
     conn.autocommit=True
     return conn
 

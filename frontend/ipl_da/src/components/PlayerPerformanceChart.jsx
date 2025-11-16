@@ -11,7 +11,7 @@ function PlayerPerformanceChart({ playerName }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    axios.get(`http://localhost:5000/api/player-performance?player=${playerName}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/player-performance?player=${playerName}`)
       .then(response => {
         if (Array.isArray(response.data) && response.data.length > 0) {
           const formattedData = response.data.map(item => ({

@@ -20,14 +20,14 @@ const BowlerLineLengthHeatmap = ({ player }) => {
       try {
         // ✅ keep your existing fetch call for line-length data
         const res = await fetch(
-          `http://localhost:5000/api/bowler-line-length?player=${encodeURIComponent(player)}`
+          `${import.meta.env.VITE_API_BASE}/api/bowler-line-length?player=${encodeURIComponent(player)}`
         );
         const json = await res.json();
         setData(json);
 
         // ✅ fetch bowling style (if exists)
         const res2 = await fetch(
-          `http://localhost:5000/api/player-stats?player=${encodeURIComponent(player)}`
+          `${import.meta.env.VITE_API_BASE}/api/player-stats?player=${encodeURIComponent(player)}`
         );
         const json2 = await res2.json();
         if (json2?.bowl_style?.bowl_style) setBowlStyle(json2.bowl_style.bowl_style);

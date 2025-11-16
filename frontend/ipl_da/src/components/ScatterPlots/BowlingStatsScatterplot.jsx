@@ -14,7 +14,7 @@ const BowlingStatsScatterplot = () => {
   const [nameFilter, setNameFilter] = useState('');
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/bowlscatter')
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/bowlscatter`)
       .then(response => {
         const formattedData = response.data.map(item => ({
           x: parseFloat(item.economy),

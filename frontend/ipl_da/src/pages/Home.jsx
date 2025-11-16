@@ -15,10 +15,10 @@ function Home() {
     const fetchStats = async () => {
       try {
         const [teamsRes, playersRes, matchesRes, seasonsRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/teams'),
-          axios.get('http://localhost:5000/api/players'),
-          axios.get('http://localhost:5000/api/matches'),
-          axios.get('http://localhost:5000/api/seasons')
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/teams`),
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/players`),
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/matches`),
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/seasons`)
         ]);
 
         setStats({

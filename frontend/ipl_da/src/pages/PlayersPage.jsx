@@ -9,7 +9,7 @@ function PlayersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/players')
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/players`)
       .then(response => {
         setPlayers(response.data);
         setLoading(false);

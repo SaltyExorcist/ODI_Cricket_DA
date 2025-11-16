@@ -142,7 +142,7 @@ const BatterBowlPhaseAnalysis = () => {
     setLoading(true);
     setError("");
     axios
-      .get(`http://localhost:5000/api/batter-bowl-phase-types?player=${encodeURIComponent(player)}`)
+      .get(`${import.meta.env.VITE_API_BASE}/api/batter-bowl-phase-types?player=${encodeURIComponent(player)}`)
       .then((res) => {
         const raw = res.data || [];
         const groupedData = raw.reduce((acc, row) => {

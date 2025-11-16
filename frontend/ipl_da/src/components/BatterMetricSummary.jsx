@@ -8,7 +8,7 @@ const BatterMetricSummary = ({ player, bowlKind }) => {
     if (!player) return;
     axios
       .get(
-        `http://localhost:5000/api/batter-zone-summary?player=${encodeURIComponent(player)}${
+        `${import.meta.env.VITE_API_BASE}/api/batter-zone-summary?player=${encodeURIComponent(player)}${
           bowlKind ? `&bowl_style=${encodeURIComponent(bowlKind)}` : ""
         }`
       )

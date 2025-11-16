@@ -10,7 +10,7 @@ function SeasonOverview({ season }) {
   const [overview, setOverview] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/season-overview?year=${season}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/season-overview?year=${season}`)
       .then(response => setOverview(response.data))
       .catch(error => console.error('Error fetching season overview:', error));
   }, [season]);

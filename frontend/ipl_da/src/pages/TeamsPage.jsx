@@ -10,7 +10,7 @@ function TeamsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/teams')
+    axios.get('${import.meta.env.VITE_API_BASE}/api/teams')
       .then(response => {
         setTeams(response.data);
         setLoading(false);
@@ -87,7 +87,7 @@ const TeamCard = ({ team, onClick }) => {
   const [performance, setPerformance] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/team-performance?team=${team}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/team-performance?team=${team}`)
       .then(response => setPerformance(response.data))
       .catch(error => console.error('Error fetching team performance:', error));
   }, [team]);

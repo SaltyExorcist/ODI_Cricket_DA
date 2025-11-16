@@ -15,8 +15,8 @@ function TeamPerformance({ team }) {
     const fetchData = async () => {
       try {
         const [perfRes, seasonRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/team-performance?team=${team}`),
-          axios.get(`http://localhost:5000/api/team-season-performance?team=${team}`)
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/team-performance?team=${team}`),
+          axios.get(`${import.meta.env.VITE_API_BASE}/api/team-season-performance?team=${team}`)
         ]);
         setPerformance(perfRes.data);
         setSeasonPerformance(seasonRes.data);

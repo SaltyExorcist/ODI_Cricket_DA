@@ -12,7 +12,7 @@ function PlayerRoleAnalysis({ playerName }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    axios.get(`http://localhost:5000/api/player-role-analysis?player=${playerName}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/player-role-analysis?player=${playerName}`)
       .then(response => {
         setData(response.data);
         setLoading(false);

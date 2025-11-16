@@ -10,7 +10,7 @@ function PlayerStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/player-stats?player=${player}`)
+    axios.get(`${import.meta.env.VITE_API_BASE}/api/player-stats?player=${player}`)
       .then(response => {
         setStats(response.data);
         setLoading(false);

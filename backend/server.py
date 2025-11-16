@@ -2,17 +2,22 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
 import re
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 # Database connection parameters
 db_params = {
-    "host": "localhost",
-    "database": "odi_db",
-    "user": "postgres",
-    "password": "Subhro@02"
+    "host": os.getenv("DB_HOST"),
+    "database": os.getenv("DB_DATABASE"),
+    "user": os.getenv("DB_USERNAME"),
+    "password": os.getenv("DB_PASSWORD"),
+    "port": os.getenv("DB_PORT"),
+    "sslmode": "require"
 }
 
 # Read the CSV file
-df = pd.read_csv('odi_bbb-25.csv')
+df = pd.read_csv('new_odi_bbb2.csv')
 
 # Clean column names (replace invalid characters with underscores)
 df.columns = [re.sub(r'\W+', '', col).strip('').lower() for col in df.columns]

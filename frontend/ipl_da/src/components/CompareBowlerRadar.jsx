@@ -21,9 +21,9 @@ const CompareBowlerRadar = ({ player1, player2 }) => {
     setLoading(true);
 
     Promise.all([
-      axios.get(`http://localhost:5000/api/bowler-skill-profile?player=${encodeURIComponent(player1)}`),
-      axios.get(`http://localhost:5000/api/bowler-skill-profile?player=${encodeURIComponent(player2)}`),
-      axios.get(`http://localhost:5000/api/bowlers-global-benchmarks`)
+      axios.get(`${import.meta.env.VITE_API_BASE}/api/bowler-skill-profile?player=${encodeURIComponent(player1)}`),
+      axios.get(`${import.meta.env.VITE_API_BASE}/api/bowler-skill-profile?player=${encodeURIComponent(player2)}`),
+      axios.get(`${import.meta.env.VITE_API_BASE}/api/bowlers-global-benchmarks`)
     ])
       .then(([res1, res2, res3]) => {
         const p1 = res1.data;
